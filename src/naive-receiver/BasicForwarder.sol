@@ -33,6 +33,9 @@ contract BasicForwarder is EIP712 {
 
     mapping(address => uint256) public nonces;
 
+    address constant NON_CALLER = address(bytes20(keccak256("BasicForwarder: Non Caller")));
+    address public currentCaller = NON_CALLER;
+
     /**
      * @notice Check request and revert when not valid. A valid request must:
      * - Include the expected value
@@ -60,8 +63,11 @@ contract BasicForwarder is EIP712 {
         uint256 gasLeft;
         uint256 value = request.value; // in wei
         address target = request.target;
-        bytes memory payload = abi.encodePacked(request.data, request.from);
+        bytes memory payload = request.data;
         uint256 forwardGas = request.gas;
+
+        currentCaller = request.from;
+
         assembly {
             success := call(forwardGas, target, value, add(payload, 0x20), mload(payload), 0, 0) // don't copy returndata
             gasLeft := gas()
@@ -72,6 +78,8 @@ contract BasicForwarder is EIP712 {
                 invalid()
             }
         }
+
+        currentCaller = NON_CALLER;
     }
 
     function _domainNameAndVersion() internal pure override returns (string memory name, string memory version) {

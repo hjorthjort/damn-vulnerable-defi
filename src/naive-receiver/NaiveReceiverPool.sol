@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {IERC3156FlashLender} from "@openzeppelin/contracts/interfaces/IERC3156FlashLender.sol";
 import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
+import {BasicForwarder} from "./BasicForwarder.sol";
 import {FlashLoanReceiver} from "./FlashLoanReceiver.sol";
 import {Multicall} from "./Multicall.sol";
 import {WETH} from "solmate/tokens/WETH.sol";
@@ -13,7 +14,7 @@ contract NaiveReceiverPool is Multicall, IERC3156FlashLender {
     bytes32 private constant CALLBACK_SUCCESS = keccak256("ERC3156FlashBorrower.onFlashLoan");
 
     WETH public immutable weth;
-    address public immutable trustedForwarder;
+    BasicForwarder public immutable trustedForwarder;
     address public immutable feeReceiver;
 
     mapping(address => uint256) public deposits;
@@ -25,7 +26,7 @@ contract NaiveReceiverPool is Multicall, IERC3156FlashLender {
 
     constructor(address _trustedForwarder, address payable _weth, address _feeReceiver) payable {
         weth = WETH(_weth);
-        trustedForwarder = _trustedForwarder;
+        trustedForwarder = BasicForwarder(_trustedForwarder);
         feeReceiver = _feeReceiver;
         _deposit(msg.value);
     }
@@ -84,8 +85,8 @@ contract NaiveReceiverPool is Multicall, IERC3156FlashLender {
     }
 
     function _msgSender() internal view override returns (address) {
-        if (msg.sender == trustedForwarder && msg.data.length >= 20) {
-            return address(bytes20(msg.data[msg.data.length - 20:]));
+        if (msg.sender == address(trustedForwarder)) {
+            return trustedForwarder.currentCaller();
         } else {
             return super._msgSender();
         }
