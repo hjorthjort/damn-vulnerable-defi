@@ -6,6 +6,8 @@ import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156
 import {WETH, NaiveReceiverPool} from "./NaiveReceiverPool.sol";
 
 contract FlashLoanReceiver is IERC3156FlashBorrower {
+    error OutsideInitiator(); // 0x4f9842c8
+    error InvalidCaller();    // 0x48f5c3ed
     address private pool;
 
     constructor(address _pool) {
@@ -29,7 +31,7 @@ contract FlashLoanReceiver is IERC3156FlashBorrower {
             }
 
             if iszero(eq(initiator, address())) {
-                mstore(0x00, 0x48f5c3ed)
+                mstore(0x00, 0x4f9842c8)
                 revert(0x1c, 0x04)
             }
         }
