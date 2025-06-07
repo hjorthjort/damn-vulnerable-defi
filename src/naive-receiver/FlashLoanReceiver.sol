@@ -12,13 +12,23 @@ contract FlashLoanReceiver is IERC3156FlashBorrower {
         pool = _pool;
     }
 
-    function onFlashLoan(address, address token, uint256 amount, uint256 fee, bytes calldata)
+    function triggerFlashLoan() external {
+        // Trigger a flash loan from the pool
+        NaiveReceiverPool(pool).flashLoan(this, address(NaiveReceiverPool(pool).weth()), 0, "");
+    }
+
+    function onFlashLoan(address initiator, address token, uint256 amount, uint256 fee, bytes calldata)
         external
         returns (bytes32)
     {
         assembly {
             // gas savings
             if iszero(eq(sload(pool.slot), caller())) {
+                mstore(0x00, 0x48f5c3ed)
+                revert(0x1c, 0x04)
+            }
+
+            if iszero(eq(initiator, address())) {
                 mstore(0x00, 0x48f5c3ed)
                 revert(0x1c, 0x04)
             }
