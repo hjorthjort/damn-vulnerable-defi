@@ -63,6 +63,8 @@ contract SideEntranceChallenge is Test {
         (new Attacker()).attack(pool, recovery, ETHER_IN_POOL);
     }
 
+    // Doesn't find the error since invariants are not recursive, so it won't do
+    // reentrancy automatically.
     function invariant_etherStillInPool() public view {
         // Invariant to ensure that the pool still has the initial amount of ETH
         assertEq(address(pool).balance + address(invariantTester).balance, ETHER_IN_POOL * 101, "total balances changed");
@@ -115,12 +117,9 @@ contract InvariantTester is StdUtils {
         pool.flashLoan(amount);
     }
     function execute() external payable {
-        // This function is called by the pool during the flash loan.
-        // It deposits the flash loaned ETH into the pool.
         if (msg.sender != address(pool)) {
             revert("Only pool can call execute");
         }
         payable(msg.sender).transfer(msg.value);
     }
-
 }
