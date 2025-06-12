@@ -98,8 +98,8 @@ contract SimpleGovernance is ISimpleGovernance {
     }
 
     function _hasEnoughVotes(address who) private view returns (bool) {
-        uint256 balance = _votingToken.getVotes(who);
-        uint256 halfTotalSupply = _votingToken.totalSupply() / 2;
+        uint256 balance = _votingToken.getPastVotes(who, block.number - 1);
+        uint256 halfTotalSupply = _votingToken.getPastTotalSupply(block.number - 1) / 2;
         return balance > halfTotalSupply;
     }
 }
