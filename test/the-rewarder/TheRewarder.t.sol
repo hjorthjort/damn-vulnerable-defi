@@ -22,6 +22,11 @@ contract TheRewarderChallenge is Test {
     uint256 constant ALICE_DVT_CLAIM_AMOUNT = 2502024387994809;
     uint256 constant ALICE_WETH_CLAIM_AMOUNT = 228382988128225;
 
+    // Player is the address at index 188 in the distribution files
+    uint256 constant PLAYER_INDEX = 188;
+    uint256 constant PLAYER_DVT_CLAIM_AMOUNT = 11524763827831882;
+    uint256 constant PLAYER_WETH_CLAIM_AMOUNT = 1171088749244340;
+
     TheRewarderDistributor distributor;
 
     // Instance of Murky's contract to handle Merkle roots, proofs, etc.
@@ -148,7 +153,38 @@ contract TheRewarderChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_theRewarder() public checkSolvedByPlayer {
-        
+        // Load leaves to generate proofs for the player's claims
+        bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
+        bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
+
+        // Tokens that will be claimed
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(address(dvt));
+        tokens[1] = IERC20(address(weth));
+
+        // Build player's claims
+        Claim[] memory claims = new Claim[](2);
+
+        claims[0] = Claim({
+            batchNumber: 0,
+            amount: PLAYER_DVT_CLAIM_AMOUNT,
+            tokenIndex: 0,
+            proof: merkle.getProof(dvtLeaves, PLAYER_INDEX)
+        });
+
+        claims[1] = Claim({
+            batchNumber: 0,
+            amount: PLAYER_WETH_CLAIM_AMOUNT,
+            tokenIndex: 1,
+            proof: merkle.getProof(wethLeaves, PLAYER_INDEX)
+        });
+
+        // Execute claim
+        distributor.claimRewards(claims, tokens);
+
+        // Ensure the player's balances increased accordingly
+        assertEq(dvt.balanceOf(player), PLAYER_DVT_CLAIM_AMOUNT);
+        assertEq(weth.balanceOf(player), PLAYER_WETH_CLAIM_AMOUNT);
     }
 
     /**

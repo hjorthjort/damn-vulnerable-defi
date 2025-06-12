@@ -79,41 +79,22 @@ contract TheRewarderDistributor {
 
     // Allow claiming rewards of multiple tokens in a single transaction
     function claimRewards(Claim[] memory inputClaims, IERC20[] memory inputTokens) external {
-        Claim memory inputClaim;
-        IERC20 token;
-        uint256 bitsSet; // accumulator
-        uint256 amount;
-
         for (uint256 i = 0; i < inputClaims.length; i++) {
-            inputClaim = inputClaims[i];
+            Claim memory inputClaim = inputClaims[i];
 
-            uint256 wordPosition = inputClaim.batchNumber / 256;
-            uint256 bitPosition = inputClaim.batchNumber % 256;
-
-            if (token != inputTokens[inputClaim.tokenIndex]) {
-                if (address(token) != address(0)) {
-                    if (!_setClaimed(token, amount, wordPosition, bitsSet)) revert AlreadyClaimed();
-                }
-
-                token = inputTokens[inputClaim.tokenIndex];
-                bitsSet = 1 << bitPosition; // set bit at given position
-                amount = inputClaim.amount;
-            } else {
-                bitsSet = bitsSet | 1 << bitPosition;
-                amount += inputClaim.amount;
-            }
-
-            // for the last claim
-            if (i == inputClaims.length - 1) {
-                if (!_setClaimed(token, amount, wordPosition, bitsSet)) revert AlreadyClaimed();
-            }
+            IERC20 token = inputTokens[inputClaim.tokenIndex];
 
             bytes32 leaf = keccak256(abi.encodePacked(msg.sender, inputClaim.amount));
             bytes32 root = distributions[token].roots[inputClaim.batchNumber];
 
             if (!MerkleProof.verify(inputClaim.proof, root, leaf)) revert InvalidProof();
 
-            inputTokens[inputClaim.tokenIndex].transfer(msg.sender, inputClaim.amount);
+            uint256 wordPosition = inputClaim.batchNumber / 256;
+            uint256 bitPosition = inputClaim.batchNumber % 256;
+
+            if (!_setClaimed(token, inputClaim.amount, wordPosition, 1 << bitPosition)) revert AlreadyClaimed();
+
+            token.transfer(msg.sender, inputClaim.amount);
         }
     }
 
