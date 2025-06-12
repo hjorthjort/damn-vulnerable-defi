@@ -44,4 +44,8 @@ contract SideEntranceLenderPool {
             revert RepayFailed();
         }
     }
+
+    receive() external payable {
+        // Allow the contract to receive Ether
+    }
 }

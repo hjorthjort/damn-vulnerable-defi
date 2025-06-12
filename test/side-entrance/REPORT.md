@@ -9,3 +9,7 @@ The flash loan relies on ether balance without checking that the balances accoun
 Use `nonReentrant` to ensure there is no reentrancy on the pool during a flash loan.
 
 Another solution would be to have the pool enforce the invariant that total deposits are at most equal to total balance, by tracking total balances. This solution also allows any extra ether sent to the pool, via mining or self-destruct, to be extracted via flash loan.
+
+# Invariant testing
+
+A naive invariant test will not find this issue because it does not deal with reentrancy.
